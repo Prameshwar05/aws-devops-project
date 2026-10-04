@@ -1,0 +1,38 @@
+- name: Deploy web app to EC2 servers
+  hosts: web
+  become: true
+  vars:
+    artifact_url: "http://10.0.0.185:8082/artifactory/webapp-releases/webapp-latest.tar.gz"
+  tasks:
+    - name: Install nginx and tar
+      ansible.builtin.dnf:
+        name:
+          - nginx
+          - tar
+        state: present
+
+    - name: Start and enable nginx
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+    - name: Download the package from Artifactory
+      ansible.builtin.get_url:
+        url: "{{ artifact_url }}"
+        dest: /tmp/webapp.tar.gz
+        url_username: "{{ artifactory_user }}"
+        url_password: "{{ artifactory_pass }}"
+        force_basic_auth: true
+        force: true
+
+    - name: Unpack into the web folder
+      ansible.builtin.unarchive:
+        src: /tmp/webapp.tar.gz
+        dest: /usr/share/nginx/html
+        remote_src: true
+
+    - name: Write a page that shows which server answered
+      ansible.builtin.copy:
+        content: "{{ inventory_hostname }}\n"
+        dest: /usr/share/nginx/html/whoami.html
